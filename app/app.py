@@ -17,24 +17,8 @@ def load_scenario(i):
     data['date'] = data['date'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d %H:%S:%f'))
     return data
 '''
-The authors describe politics in terms of three dimensions: essentials, influentials, and interchangeables. Essentials are people the political leader needs to keep loyal, influentials are people who the leader sometimes needs to keep loyal, and interchangeables are people who the leader doesn't need to keep loyal on an individual basis. This framework seems kinda strange to me. These seem more like quantitative distinctions than qualititative ones, so I think it would be more natural to put everyone on a single axis of "influence" or "value to the leader". This way there would be an easy way to quantify where a given society falls on the democracy-autocracy spectrum, by taking either the entropy, or the power law index of the "influence" distribution. I don't see an easy way to do this with the essentials/influentials/interchangeables framework (is lots of interchangeables but few influentials better than vice versa?)
-On foreign aid:
-  * State foreign aid seems to be motivated by the interests of the populous rather than humanitarian interests. The most eggregious example of this was the US personally enriching Liberia's dictator Samuel Doe in exchange for his loyalty against communism.
-  * Something I've found confusing is that countries rich in natural resources often do worse in terms of development than those poor in natural resources. It's easy to see why they wouldn't do any better: a dictator simply steals all the value of the natural resources and so none goes into development. But why would these countries actually do <i>worse</i> in development? There are two reasons: if the dictator has more money readily available then they can more successfully supress any political dissidents. And, more interestingly, if there are no natural resources to plunder, the only way for the dictator to enrich themself and pay off their cronies is by taxing a productive population. Thus economic development is in the dictator's interest.
-  * The best way to help a poor country under autocratic rule is 1) don't buy natural resources from it as this only empowers the dictator (see above), 2) reward the dictator for taking steps towards democratization (such as offering safe and luxurious retirements to dictators who agree to step down), 3) don't give the rewards directly, instead place them in escrow accounts which will be opened after certain stipulations are met.
-  * Humanitarian efforts are typically most successful in areas which the local dictator would support anyway. Health, nutrition, and low-level education are all capabilities which make the population more productive, and therefore more wealth-extractable.
-  * Bringing aid or forgiving debts of corrupt and poor countries is often counterproductive, as this only gives the dictator more opportunities to pay off his cronies and entrench his position.
-War:
-  * In democracies, the value of citizen lives is higher, and if the security of the state is at risk, then
-  * Why is Israel so milataristically successful? Partly
-That democrats are more
-A consequence of gerrymandering is that everyone is dissatisfied with the government as a whole, but satisfied with their representitive in particular.
-
-
 Tokenization from scratch: some thoughts
  * train a character level language model. then iteratively join tokens such that the entropy of the predictions stays around constant
-
-
 I wonder how predictive accuracy scales with the level of abstraction that someone is reasoning at.
 '''
 # LDD Region Drift Algorithm
@@ -53,56 +37,56 @@ def knn(centre, population, k):
     #
     return ret
 
+def get_ewma(x, alpha=0.05):
+    # where x is some sequence
+    ewma = [x[0]]
+    for i, x_i in enumerate(x):
+        if i==0:
+            continue
+        ewma.append( x_i * alpha + ewma[i-1] * (1-alpha) )
+    return ewma
+
+def get_graph(data, id):
+    return dcc.Graph(
+        id=id,
+        figure={
+            'data': data,
+            'layout': {
+                'plot_bgcolor': colors['background'],
+                'paper_bgcolor': colors['background'],
+                'font': {
+                    'color': colors['text']
+                }
+            }
+        }
+    )
+
+def get_stream_plot(x, ys, id='', stacked=False):
+    # ys is a dictionary {stream_name: stream_values}
+    # if stack then stack all streams on one plot so that they sum to one
+    ewmas = { name: get_ewma(y) for name, y in ys.items() }
+    if stacked:
+        data = [
+            go.Scatter(x=x, y=ewma, mode='lines', stackgroup='one', name=name)
+            for name, ewma in ewmas.items()
+        ]
+    else:
+        data = [ { 'x': x, 'y': ewma, 'name': name } for name, ewma in ewmas.items() ]
+    return get_graph(data, id)
 
 def get_error_tab(data):
+    ys = { col: data[col] for col in ['warning_level', 'drift_level', 'error_rate'] }
     return dcc.Tab(
         label='Error Rate',
         children=[
             html.Div(style={'backgroundColor': colors['background']}, children=[
-                dcc.Graph(
-                    id='Graph1',
-                    figure={
-                        'data': [
-                            {'x': data['date'], 'y': data[col], 'name': col}
-                            for col in ['warning_level', 'drift_level', 'error_rate']
-                        ],
-                        'layout': {
-                            'plot_bgcolor': colors['background'],
-                            'paper_bgcolor': colors['background'],
-                            'font': {
-                                'color': colors['text']
-                            }
-                        }
-                    }
-                )
+                get_stream_plot(data['date'], ys, id='Graph1')
             ])
         ]
     )
 
 def get_label_tab(data):
-
-    # x = data.date
-    # fig = go.Figure()
-    #
-    # # colors = [ '184, 247, 212',  '111, 231, 219', '127, 166, 238', '131, 90, 241' ]
-    #
-    # for i in range(5):
-    #     fig.add_trace(go.Scatter(
-    #         x=x, y=data[f'label={i+1}'],
-    #         mode='lines',
-    #         line=dict(width=0.5),#, color=f'rgb({colors[i]})'),
-    #         stackgroup='one'#,
-    #         # groupnorm='percent' # sets the normalization for the sum of the stackgroup
-    #     ))
-
-    # fig.update_layout(
-    #     showlegend=True)#,
-        # xaxis_type='category',
-        # yaxis=dict(
-        #     type='linear',
-        #     range=[1, 100],
-        #     ticksuffix='%'))
-    # label_colours = {1: 'red', 2: 'orange', 3: 'yellow', 4: 'blue', 5: 'green'}
+    ys = {i: data[f'label={i}'] for i in [1,2,3,4,5]}
     return dcc.Tab(
         label='Labels',
         children=[
@@ -135,54 +119,24 @@ def get_label_tab(data):
                     ],
                     value='val'
                 ),
-                dcc.Graph(
-                    id='Graph2',
-                    figure={
-                        'data': [
-                            # fig
-                            # {'x': data['date'], 'y': streams[i], 'name': i} # data[f'label={i}']
-                            # for i in [1,2,3,4,5]
-                            go.Scatter(
-                                x=data['date'], y=data[f'label={i}'], mode='lines', stackgroup='one', name=i#, fillcolor=label_colours[i]
-                            )
-                            for i in [1,2,3,4,5]
-                        ],
-                        'layout': {
-                            'plot_bgcolor': colors['background'],
-                            'paper_bgcolor': colors['background'],
-                            'font': {
-                                'color': colors['text']
-                            }
-                        }
-                    }
-                )
+                get_stream_plot(data['date'], ys, id='Graph2', stacked=True)
             ])
         ]
     )
 
-def get_feature_tab(data):
+def get_feature_tab(data, single_plot=False):
+    feature_cols = [ col for col in data.columns if \
+        col not in ['date'] + ['warning_level', 'drift_level', 'error_rate'] \
+        and not col.startswith('label=') ]
+    if single_plot:
+        ys = {col: data[col] for col in feature_cols }
+        children = [ get_stream_plot(data['date'], ys, id='FeaturesGraph') ]
+    else:
+        children = [ get_stream_plot(data['date'], {col: data[col]}, id=f'FeaturesGraph{i}') for i, col in enumerate(feature_cols[:50]) ]
     return dcc.Tab(
         label='Features',
         children=[
-            html.Div(style={'backgroundColor': colors['background']}, children=[
-                dcc.Graph(
-                    id='Graph3',
-                    figure={
-                        'data': [
-                            {'x': data['date'], 'y': data[col], 'name': col}
-                            for col in data.columns if col != 'date' and \
-                            not col.startswith('label=') and col not in ['warning_level', 'drift_level', 'error_rate']
-                        ],
-                        'layout': {
-                            'plot_bgcolor': colors['background'],
-                            'paper_bgcolor': colors['background'],
-                            'font': {
-                                'color': colors['text']
-                            }
-                        }
-                    }
-                )
-            ])
+            html.Div(style={'backgroundColor': colors['background']}, children=children)
         ]
     )
 
