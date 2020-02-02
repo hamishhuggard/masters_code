@@ -1,0 +1,7 @@
+[Name, Avg. Error-rate, Drift Detector Stats, Avg. Total Memory, Avg. Total Runtime, Avg. Score]
+NAIVE BAYES + CDDM:	0.0	[1000, [0, 0], 0, 4]	39.15	68062.33	0.41
+NAIVE BAYES + RDDM:	14.26	[1000, [0, 0], 3, 4]	96.45	449.47	0.35
+NAIVE BAYES + HDDM.A.test:	14.52	[1000, [0, 0], 5, 4]	33.81	481.73	0.43
+PERCEPTRON + CDDM:	0.0	[1000, [0, 0], 0, 4]	13.94	67474.28	0.46
+PERCEPTRON + RDDM:	36.79	[910, [40161, 1], 6, 3]	71.3	278.18	0.43
+PERCEPTRON + HDDM.A.test:	35.67	[1000, [0, 0], 4, 4]	8.68	679.36	0.4

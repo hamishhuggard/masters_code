@@ -1,0 +1,4 @@
+[Name, Avg. Error-rate, Drift Detector Stats, Avg. Total Memory, Avg. Total Runtime, Avg. Score]
+NAIVE BAYES + RDDM:	15.909999999999998	[410, [80119, 4], 0, 0]	96.49	1106.52	0.25
+NAIVE BAYES + CDDM:	0.0	[323, [80086, 4], 0, 0]	39.16	42313.25	0.46
+NAIVE BAYES + HDDM.A.test:	16.14	[213, [80046, 4], 1, 0]	33.86	1238.73	0.47
