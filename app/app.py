@@ -12,9 +12,19 @@ import os
 from datetime import datetime
 
 def load_scenario(i):
-    path = os.path.abspath(f'./fake_data/scenario{i}.csv')
-    data = pd.read_csv(path)
-    data['date'] = data['date'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d %H:%S:%f'))
+    # path = os.path.abspath(f'./fake_data/scenario{i}.csv')
+    # data = pd.read_csv(path)
+    # data['date'] = data['date'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d %H:%S:%f'))
+    dirname = os.path.abspath(f'./fake_data/scenarios/{i}/')
+    data = pd.read_csv(dirname + '/test.csv')
+    with open(dirname + '/y.json', 'r') as f:
+        y = json.loads(f.read())
+    with open(dirname + '/errs.json', 'r') as f:
+        errs = json.loads(f.read())
+    for i in [1,2,3,4,5]:
+        data[f'label={i}'] = [ label==i for label in y ]
+    data['error_rate'] = errs
+    data['date'] = list(range(len(data)))
     return data
 '''
 Tokenization from scratch: some thoughts
@@ -36,6 +46,8 @@ def knn(centre, population, k):
                 return ret
     #
     return ret
+
+# def
 
 def get_ewma(x, alpha=0.05):
     # where x is some sequence
@@ -75,7 +87,7 @@ def get_stream_plot(x, ys, id='', stacked=False):
     return get_graph(data, id)
 
 def get_error_tab(data):
-    ys = { col: data[col] for col in ['warning_level', 'drift_level', 'error_rate'] }
+    ys = { col: data[col] for col in ['error_rate'] } # 'warning_level', 'drift_level',
     return dcc.Tab(
         label='Error Rate',
         children=[
@@ -124,7 +136,7 @@ def get_label_tab(data):
         ]
     )
 
-def get_feature_tab(data, single_plot=False):
+def get_feature_tab(data, single_plot=True):
     feature_cols = [ col for col in data.columns if \
         col not in ['date'] + ['warning_level', 'drift_level', 'error_rate'] \
         and not col.startswith('label=') ]
@@ -144,7 +156,7 @@ def get_tabs(data):
     # return [ ErrorTab(data), LabelTab(data), FeatureTab(data) ]
     return [ get_error_tab(data), get_label_tab(data), get_feature_tab(data) ]
 
-data = load_scenario(1)
+data = load_scenario('shuffle_features') # 1
 
 app = dash.Dash()
 
@@ -166,10 +178,12 @@ app.layout = html.Div([
     dcc.Dropdown(
         id = 'scenario-selector',
         options=[
-            {'label': 'Real Drift', 'value': 1},
-            {'label': 'Virtual Drift', 'value': 2}
+            # {'label': 'Real Drift', 'value': 1},
+            # {'label': 'Virtual Drift', 'value': 2}
+            {'label': scenario, 'value': scenario}
+            for scenario in ['shuffle_features', 'not_feature', 'swap_classes', 'new_concept']
         ],
-        value=1,
+        value='shuffle_features', # 1
         style={'fontFamily': 'system-ui', 'maxWidth': '1000px', 'margin': '10px auto'},
         # content_style={
         #     'borderLeft': '1px solid #d6d6d6',
