@@ -65,6 +65,9 @@ class DDM(SuperDetector):
             drift_status = True
 
         return warning_status, drift_status
+    
+    def get_prob_level(self):
+        return self.__P + self.__S
 
     def reset(self):
         super().reset()

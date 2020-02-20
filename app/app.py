@@ -21,10 +21,15 @@ def load_scenario(i):
         y = json.loads(f.read())
     with open(dirname + '/errs.json', 'r') as f:
         errs = json.loads(f.read())
+    err_data = pd.read_csv(dirname + '/err_data.csv')
+    status_data = pd.read_csv(dirname + '/status_data.csv')
     for i in [1,2,3,4,5]:
         data[f'label={i}'] = [ label==i for label in y ]
     data['error_rate'] = errs
     data['date'] = list(range(len(data)))
+    # data['err_data'] = err_data
+    data = data.join(err_data)
+    data = data.join(status_data)
     return data
 '''
 Tokenization from scratch: some thoughts
@@ -68,31 +73,56 @@ def get_graph(data, id):
                 'paper_bgcolor': colors['background'],
                 'font': {
                     'color': colors['text']
-                }
+                },
+                'title': id
             }
         }
     )
 
-def get_stream_plot(x, ys, id='', stacked=False):
+def get_stream_plot(x, ys, id='', stacked=False, color=[]):
     # ys is a dictionary {stream_name: stream_values}
     # if stack then stack all streams on one plot so that they sum to one
     ewmas = { name: get_ewma(y) for name, y in ys.items() }
+    args = {'x': x, 'mode': 'lines'}
     if stacked:
-        data = [
-            go.Scatter(x=x, y=ewma, mode='lines', stackgroup='one', name=name)
-            for name, ewma in ewmas.items()
-        ]
-    else:
-        data = [ { 'x': x, 'y': ewma, 'name': name } for name, ewma in ewmas.items() ]
+        args['stackgroup'] = 'one'
+    if len(color) > 0:
+        args['marker'] = {'color': color, 'colorscale': 'rdylgn'}#, 'showscale': True}
+        args['mode'] = 'lines+markers'
+        args['line'] = {'color': 'black'}
+    data = []
+    for name, ewma in ewmas.items():
+        args['y'] = ewma
+        args['name'] = name
+        data.append( go.Scatter(**args) )
+    # if len(color) > 0:
+    #     args['mode'] = 'marker'
+    #     for name, ewma in ewmas.items():
+    #         args['y'] = ewma
+    #         args['name'] = name
+    #         data.append( go.Scatter(**args) )
+    # data = [ { 'x': x, 'y': ewma, 'name': name } for name, ewma in ewmas.items() ]
+    # if stacked:
+    #
+    #     data = [
+    #         go.Scatter(x=x, y=ewma, color=color, mode='lines', stackgroup='one', name=name)
+    #         for name, ewma in ewmas.items()
+    #     ]
+    # else:
+    #     data = [ { 'x': x, 'y': ewma, 'name': name } for name, ewma in ewmas.items() ]
     return get_graph(data, id)
 
 def get_error_tab(data):
     ys = { col: data[col] for col in ['error_rate'] } # 'warning_level', 'drift_level',
+    status = data['STATUS'].astype('category').cat.set_categories(['Drift', 'Warning', 'Normal'])
+    print(status.cat.categories)
+    status = status.cat.reorder_categories(['Drift', 'Warning', 'Normal'])
+
     return dcc.Tab(
         label='Error Rate',
         children=[
             html.Div(style={'backgroundColor': colors['background']}, children=[
-                get_stream_plot(data['date'], ys, id='Graph1')
+                get_stream_plot(data['date'], ys, id='Model Error Rate', color=status.cat.codes)
             ])
         ]
     )
@@ -104,47 +134,49 @@ def get_label_tab(data):
         children=[
         html.Div(style={'backgroundColor': colors['background']},
         children=[
-                dcc.Checklist(
-                    id = 'label display',
-                    options=[
-                        {'label': 'Predicted labels', 'value': 'predicted'},
-                        {'label': 'True Labels', 'value': 'true'}
-                    ],
-                    value=['true']
-                ),
-                dcc.Checklist(
-                    id = 'label metrics',
-                    options=[
-                        {'label': 'Precision', 'value': 'prec'},
-                        {'label': 'Recall', 'value': 'rec'},
-                        {'label': 'F1', 'value': 'f1'},
-                        {'label': 'Frequency', 'value': 'freq'}
-                    ],
-                    value=['rec']
-                ),
-                dcc.Dropdown(
-                    options=[
-                        {'label': 'value', 'value': 'val'},
-                        {'label': 'z-score', 'value': 'z'},
-                        {'label': 'p-value', 'value': 'p'},
-                        {'label': 'minus log p-value', 'value': 'log'}
-                    ],
-                    value='val'
-                ),
-                get_stream_plot(data['date'], ys, id='Graph2', stacked=True)
+                # dcc.Checklist(
+                #     id = 'label display',
+                #     options=[
+                #         {'label': 'Predicted labels', 'value': 'predicted'},
+                #         {'label': 'True Labels', 'value': 'true'}
+                #     ],
+                #     value=['true']
+                # ),
+                # dcc.Checklist(
+                #     id = 'label metrics',
+                #     options=[
+                #         {'label': 'Precision', 'value': 'prec'},
+                #         {'label': 'Recall', 'value': 'rec'},
+                #         {'label': 'F1', 'value': 'f1'},
+                #         {'label': 'Frequency', 'value': 'freq'}
+                #     ],
+                #     value=['rec']
+                # ),
+                # dcc.Dropdown(
+                #     options=[
+                #         {'label': 'value', 'value': 'val'},
+                #         {'label': 'z-score', 'value': 'z'},
+                #         {'label': 'p-value', 'value': 'p'},
+                #         {'label': 'minus log p-value', 'value': 'log'}
+                #     ],
+                #     value='val'
+                # ),
+                get_stream_plot(data['date'], ys, id='Label Rates', stacked=True)
+                ] + [ get_stream_plot(data['date'], {f'label={i}': data[f'label={i}']}, id=f'Label {i} Rate') for i in range(1, 6)
             ])
         ]
     )
 
-def get_feature_tab(data, single_plot=True):
+def get_feature_tab(data, single_plot=False):
     feature_cols = [ col for col in data.columns if \
-        col not in ['date'] + ['warning_level', 'drift_level', 'error_rate'] \
-        and not col.startswith('label=') ]
+        col not in ['date'] + ['warning_level', 'drift_level', 'error_rate'] + \
+        ['STATUS', 'ERRS', 'PROB'] \
+        and not col.startswith('label=') and not col.endswith('_status')]
     if single_plot:
         ys = {col: data[col] for col in feature_cols }
         children = [ get_stream_plot(data['date'], ys, id='FeaturesGraph') ]
     else:
-        children = [ get_stream_plot(data['date'], {col: data[col]}, id=f'FeaturesGraph{i}') for i, col in enumerate(feature_cols[:50]) ]
+        children = [ get_stream_plot(data['date'], {col: data[col]}, id=f'Rate of Feature "{col}"', color=data[f'{col}_status']) for i, col in enumerate(feature_cols[:50]) ]
     return dcc.Tab(
         label='Features',
         children=[
